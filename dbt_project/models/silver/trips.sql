@@ -7,14 +7,28 @@
 
 {% set cols = ['trip_id','driver_id','customer_id','vehicle_id','trip_start_time','trip_end_time','distance_km','fare_amount','last_updated_timestamp'] %}
 
-select 
+with raw as (
+    select
+        {% for col in cols %}
+            {{col}}
+            {% if not loop.last %} , {% endif %}
+        {% endfor %}
+    from {{source('source_bronze','trips')}}
+    {% if is_incremental() %}
+    where last_updated_timestamp > (select coalesce(max(last_updated_timestamp),'1990-01-01') from {{this}})
+    {% endif %}
+),
+
+deduped as (
+    select *,
+        row_number() over (partition by trip_id order by last_updated_timestamp desc) as rn
+    from raw
+)
+
+select
     {% for col in cols %}
         {{col}}
-        {%if not loop.last%}
-        ,
-        {% endif%}
+        {% if not loop.last %} , {% endif %}
     {% endfor %}
-from {{source('source_bronze','trips')}}
-{% if dbt.is_incremental()%}
-where last_updated_timestamp > (select coalesce(max(last_updated_timestamp),'1990-01-01') from {{this}})
-{%endif%}
+from deduped
+where rn = 1
