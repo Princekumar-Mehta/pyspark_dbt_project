@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: trips
+    description: "Incremental trips model loaded from bronze using last_updated_timestamp as watermark"
+    columns:
+      - name: trip_id
+        tests:
+          - unique
+          - not_null
+      - name: driver_id
+        tests:
+          - not_null
+      - name: customer_id
+        tests:
+          - not_null
+      - name: vehicle_id
+        tests:
+          - not_null
+      - name: fare_amount
+        tests:
+          - not_null
+      - name: last_updated_timestamp
+        tests:
+          - not_null
