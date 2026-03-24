@@ -1,0 +1,60 @@
+snapshots:
+  - name: dim_customers
+    relation: source('source_silver','customers') # source('my_source', 'my_table') or ref('my_model')
+    config:
+      database: pyspark_dbt
+      schema: gold
+      strategy: timestamp
+      unique_key: customer_id
+      updated_at: last_updated_timestamp
+      dbt_valid_to_current: "to_date('9999-12-31')"
+
+  - name: dim_drivers
+    relation: source('source_silver','drivers') # source('my_source', 'my_table') or ref('my_model')
+    config:
+      database: pyspark_dbt
+      schema: gold
+      strategy: timestamp
+      unique_key: driver_id
+      updated_at: last_updated_timestamp
+      dbt_valid_to_current: "to_date('9999-12-31')"
+
+  - name: dim_locations
+    relation: source('source_silver','locations') # source('my_source', 'my_table') or ref('my_model')
+    config:
+      database: pyspark_dbt
+      schema: gold
+      strategy: timestamp
+      unique_key: location_id
+      updated_at: last_updated_timestamp
+      dbt_valid_to_current: "to_date('9999-12-31')"
+
+  - name: dim_payments
+    relation: source('source_silver','payments') # source('my_source', 'my_table') or ref('my_model')
+    config:
+      database: pyspark_dbt
+      schema: gold
+      strategy: timestamp
+      unique_key: payment_id
+      updated_at: last_updated_timestamp
+      dbt_valid_to_current: "to_date('9999-12-31')"
+
+  - name: dim_vehicles
+    relation: source('source_silver','vehicles') # source('my_source', 'my_table') or ref('my_model')
+    config:
+      database: pyspark_dbt
+      schema: gold
+      strategy: timestamp
+      unique_key: vehicle_id
+      updated_at: last_updated_timestamp
+      dbt_valid_to_current: "to_date('9999-12-31')"
+
+  - name: fact_trips
+    relation: ref('trips') # source('my_source', 'my_table') or ref('my_model')
+    config:
+      database: pyspark_dbt
+      schema: gold
+      strategy: timestamp
+      unique_key: trip_id
+      updated_at: last_updated_timestamp
+      dbt_valid_to_current: "to_date('9999-12-31')"
