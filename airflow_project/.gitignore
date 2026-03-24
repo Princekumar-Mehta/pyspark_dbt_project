@@ -1,0 +1,48 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.pytest_cache/
+
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Airflow specific
+logs/
+plugins/__pycache__/
+standalone_admin_password.txt
+airflow.cfg
+airflow.db
+
+# Environment Secrets (CRITICAL)
+.env
+.env.*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE - VS Code
+.vscode/
+
+# 1. Ignore all files inside the dags folder
+dags/*
+
+# 2. But do NOT ignore the dags folder itself
+!dags/
+
+# 3. Do NOT ignore files starting with prod_
+!dags/prod_*
+
+# 4. Do NOT ignore subdirectories if you want to keep them
+!dags/*/
