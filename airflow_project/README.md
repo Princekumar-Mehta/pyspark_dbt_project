@@ -60,7 +60,12 @@ Uses the `DatabricksHook` to submit a one-off notebook run via the Databricks Jo
 - **Connection**: `databricks_default` (configured in Airflow Connections)
 
 ### `dbt_gold_layer_execution`
-Triggers the dbt transformation pipeline for producing Gold layer analytical models.
+Triggers a **dbt Cloud job** via the dbt Cloud REST API. It:
+1. Reads `account_id`, `job_id`, and `token` from an Airflow Variable (`dbt_cloud_config`).
+2. POSTs to the dbt Cloud API to trigger the job.
+3. **Polls every 30 seconds** until the job succeeds (status `10`) or fails (status `20/30`).
+
+This runs the dbt Silver incremental model and Gold SCD Type 2 snapshots on dbt Cloud.
 
 ---
 

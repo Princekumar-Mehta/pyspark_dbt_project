@@ -20,12 +20,15 @@ This sub-project contains the **dbt** data transformation models that power the 
 ```
 dbt_project/
 ├── models/
-│   ├── silver/    # Staging/intermediate models reading from Silver Delta tables
-│   └── gold/      # Final analytical models (business-ready)
+│   ├── source/
+│   │   └── sources.yml          # Bronze + Silver source definitions
+│   └── silver/
+│       └── trips.sql            # Incremental model with CDC watermark (reads from Bronze)
+├── snapshots/
+│   └── scds.yml                 # SCD Type 2 snapshots → Gold layer (5 dims + fact_trips)
 ├── analyses/      # Ad-hoc analytical SQL (not materialised)
 ├── macros/        # Reusable Jinja SQL macros
 ├── seeds/         # Static CSV seed data
-├── snapshots/     # dbt snapshot definitions (SCD Type 2)
 ├── tests/         # Custom data quality tests
 ├── dbt_project.yml  # Project configuration
 └── .gitignore
@@ -33,32 +36,62 @@ dbt_project/
 
 ---
 
-## Materialisation Strategy
+## What's Implemented
 
-Configured in `dbt_project.yml`:
+### Silver Layer — `models/silver/trips.sql`
+The `trips` entity is handled by dbt as an **incremental model** (other Silver entities are handled by PySpark).
 
-| Layer | Schema | Materialisation |
-|---|---|---|
-| `silver` | `silver` | `table` |
-| `gold` | `gold` | `table` |
+- Reads from `pyspark_dbt.bronze.trips`
+- Uses a **CDC high-watermark** pattern: only loads rows where `last_updated_timestamp` is newer than the current max in the table
+- Materialised as a Delta table in `pyspark_dbt.silver`
 
-Both layers are materialised as **Delta tables** in the `pyspark_dbt` catalog on Databricks.
+```sql
+{% if is_incremental() %}
+where last_updated_timestamp > (select coalesce(max(last_updated_timestamp),'1990-01-01') from {{ this }})
+{% endif %}
+```
+
+---
+
+### Gold Layer — `snapshots/scds.yml` (SCD Type 2)
+The entire Gold layer is built using **dbt snapshots** — not regular models. This implements **Slowly Changing Dimensions Type 2**, preserving the full history of each record with `dbt_valid_from` / `dbt_valid_to` columns.
+
+| Snapshot | Source | Key | Schema |
+|---|---|---|---|
+| `dim_customers` | `source_silver.customers` | `customer_id` | `pyspark_dbt.gold` |
+| `dim_drivers` | `source_silver.drivers` | `driver_id` | `pyspark_dbt.gold` |
+| `dim_vehicles` | `source_silver.vehicles` | `vehicle_id` | `pyspark_dbt.gold` |
+| `dim_payments` | `source_silver.payments` | `payment_id` | `pyspark_dbt.gold` |
+| `dim_locations` | `source_silver.locations` | `location_id` | `pyspark_dbt.gold` |
+| `fact_trips` | `ref('trips')` (Silver dbt model) | `trip_id` | `pyspark_dbt.gold` |
+
+All snapshots use the `timestamp` strategy on `last_updated_timestamp`, with open-ended records set to `9999-12-31`.
 
 ---
 
 ## Data Flow
 
 ```
-pyspark_dbt.silver.*          (produced by PySpark notebooks)
+pyspark_dbt.bronze.trips          (produced by PySpark Bronze notebook)
         │
         ▼
-   dbt Silver models          (light staging / referencing Silver tables)
+   dbt incremental model          (models/silver/trips.sql — CDC watermark)
         │
         ▼
-   dbt Gold models            (aggregated, business-ready analytical tables)
+pyspark_dbt.silver.trips
         │
         ▼
-pyspark_dbt.gold.*
+   dbt SCD Type 2 snapshot        (snapshots/scds.yml — fact_trips)
+        │
+        ▼
+pyspark_dbt.gold.fact_trips
+
+pyspark_dbt.silver.*              (customers, drivers, vehicles, payments, locations)
+   produced by PySpark notebooks  ↓
+   dbt SCD Type 2 snapshots       (snapshots/scds.yml — dim_*)
+        │
+        ▼
+pyspark_dbt.gold.dim_*
 ```
 
 ---
@@ -66,11 +99,14 @@ pyspark_dbt.gold.*
 ## Common Commands
 
 ```bash
-# Run all models
-dbt run
+# Run the Silver incremental model
+dbt run --select silver.trips
 
-# Run only Gold layer models
-dbt run --select gold
+# Run all SCD Type 2 snapshots (Gold layer)
+dbt snapshot
+
+# Run everything
+dbt run && dbt snapshot
 
 # Test data quality
 dbt test

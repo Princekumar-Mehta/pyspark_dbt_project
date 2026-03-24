@@ -37,6 +37,8 @@ Applies **batch transformations** to the Bronze Delta tables and upserts the res
 
 **Entities processed:** `customers`, `drivers`, `locations`, `payments`, `vehicles`
 
+> **Note:** `trips` is intentionally **not** processed here. It is handled by a dbt incremental model in `dbt_project/models/silver/trips.sql` which reads directly from the Bronze Delta table using a CDC high-watermark pattern.
+
 **Transformations applied (via `Transformations` class):**
 
 | Method | Description |

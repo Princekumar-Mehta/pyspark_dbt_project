@@ -7,35 +7,39 @@ An end-to-end data engineering monorepo implementing a **Medallion Architecture*
 ## Architecture Overview
 
 ```
-Source Data (CSV)
-      │
-      ▼
-┌─────────────────────────────────────────────────┐
-│              BRONZE LAYER (Databricks)           │
-│  PySpark Structured Streaming → Delta Tables     │
-│  Entities: customers, payments, locations,       │
-│            vehicles, drivers, trips              │
-└─────────────────────────┬───────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────┐
-│              SILVER LAYER (Databricks)           │
-│  PySpark Batch Transformations → Delta Tables    │
-│  Deduplication, Upserts, Data Cleansing          │
-└─────────────────────────┬───────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────┐
-│               GOLD LAYER (dbt)                   │
-│  SQL Transformations → Analytical Tables         │
-│  Business-ready aggregated models                │
-└─────────────────────────┬───────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────┐
-│          ORCHESTRATION (Apache Airflow)          │
-│  Master DAG → triggers Databricks & dbt runs    │
-└─────────────────────────────────────────────────┘
+Source Data (CSV on Databricks Volumes)
+          │
+          ▼
+┌──────────────────────────────────────────────────────┐
+│                 BRONZE LAYER  (PySpark)               │
+│  Structured Streaming → Delta Tables                  │
+│  Entities: customers, drivers, vehicles,              │
+│            payments, locations, trips                 │
+└────────┬─────────────────────────────────┬───────────┘
+         │  5 entities                     │  trips
+         ▼                                ▼
+┌─────────────────────┐       ┌───────────────────────┐
+│   SILVER  (PySpark) │       │   SILVER (dbt)        │
+│  Batch dedup, CDC   │       │  Incremental model    │
+│  upsert via MERGE   │       │  with watermark logic │
+│  pyspark_dbt.silver │       │  pyspark_dbt.silver   │
+└─────────┬───────────┘       └──────────┬────────────┘
+          │                              │
+          └─────────────┬────────────────┘
+                        ▼
+┌──────────────────────────────────────────────────────┐
+│                  GOLD LAYER  (dbt)                    │
+│  SCD Type 2 Snapshots → Historized Dimension Tables  │
+│  dim_customers, dim_drivers, dim_vehicles,            │
+│  dim_payments, dim_locations, fact_trips              │
+│  pyspark_dbt.gold                                    │
+└──────────────────────┬───────────────────────────────┘
+                       ▼
+┌──────────────────────────────────────────────────────┐
+│             ORCHESTRATION  (Apache Airflow)           │
+│  CeleryExecutor on Docker — Master DAG triggers       │
+│  Databricks PySpark jobs → dbt snapshot runs         │
+└──────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -64,10 +68,11 @@ pyspark_dbt_project/
 
 ## Data Pipeline Flow
 
-1. **Bronze Ingestion** — Raw CSV files are streamed into Delta tables using PySpark Structured Streaming on Databricks.
-2. **Silver Transformation** — Bronze Delta tables are cleaned, deduped, and upserted into the Silver layer via PySpark batch jobs.
-3. **Gold Transformation** — dbt SQL models aggregate and join Silver tables into business-ready Gold tables.
-4. **Orchestration** — Airflow's `master_medallion_pipeline` DAG ties the entire pipeline together, sequentially triggering Databricks and dbt jobs.
+1. **Bronze Ingestion (PySpark)** — All 6 entities are streamed from CSV Volumes into Delta tables using PySpark Structured Streaming on Databricks.
+2. **Silver Transformation (PySpark)** — 5 entities (`customers`, `drivers`, `vehicles`, `payments`, `locations`) are cleaned, deduped, and upserted via Delta Lake MERGE using PySpark batch jobs.
+3. **Silver — Trips (dbt)** — The `trips` entity is modelled as a dbt **incremental model** with CDC high-watermark logic, reading directly from the Bronze Delta table.
+4. **Gold Layer (dbt Snapshots)** — dbt **SCD Type 2 snapshots** build historized dimension and fact tables (`dim_customers`, `dim_drivers`, `dim_vehicles`, `dim_payments`, `dim_locations`, `fact_trips`) in the `pyspark_dbt.gold` schema.
+5. **Orchestration (Airflow)** — The `master_medallion_pipeline` DAG sequentially triggers the Databricks PySpark jobs and the dbt snapshot runs via CeleryExecutor on Docker.
 
 ---
 
