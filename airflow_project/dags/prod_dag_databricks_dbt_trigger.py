@@ -1,7 +1,7 @@
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.models import Variable
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 import time
 
@@ -49,7 +49,11 @@ with DAG(
     dag_id='dbt_gold_layer_execution',
     start_date=datetime(2026, 3, 24),
     schedule=None, # Triggered by parent or manual
-    catchup=False
+    catchup=False,
+    default_args={
+        'retries': 2,
+        'retry_delay': timedelta(minutes=5),
+    }
 ) as dag:
 
     dbt_task = PythonOperator(
