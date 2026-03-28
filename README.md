@@ -6,46 +6,6 @@ An end-to-end data engineering monorepo implementing a **Medallion Architecture*
 
 ---
 
-## Architecture Overview
-
-```
-Source Data (CSV on Databricks Volumes)
-          │
-          ▼
-┌──────────────────────────────────────────────────────┐
-│                 BRONZE LAYER  (PySpark)               │
-│  Structured Streaming → Delta Tables                  │
-│  Entities: customers, drivers, vehicles,              │
-│            payments, locations, trips                 │
-└────────┬─────────────────────────────────┬───────────┘
-         │  5 entities                     │  trips
-         ▼                                ▼
-┌─────────────────────┐       ┌───────────────────────┐
-│   SILVER  (PySpark) │       │   SILVER (dbt)        │
-│  Batch dedup, CDC   │       │  Incremental model    │
-│  upsert via MERGE   │       │  with watermark logic │
-│  pyspark_dbt.silver │       │  pyspark_dbt.silver   │
-└─────────┬───────────┘       └──────────┬────────────┘
-          │                              │
-          └─────────────┬────────────────┘
-                        ▼
-┌──────────────────────────────────────────────────────┐
-│                  GOLD LAYER  (dbt)                    │
-│  SCD Type 2 Snapshots → Historized Dimension Tables  │
-│  dim_customers, dim_drivers, dim_vehicles,            │
-│  dim_payments, dim_locations, fact_trips              │
-│  pyspark_dbt.gold                                    │
-└──────────────────────┬───────────────────────────────┘
-                       ▼
-┌──────────────────────────────────────────────────────┐
-│             ORCHESTRATION  (Apache Airflow)           │
-│  CeleryExecutor on Docker — Master DAG triggers       │
-│  Databricks PySpark jobs → dbt snapshot runs         │
-└──────────────────────────────────────────────────────┘
-```
-
----
-
 ## Repository Structure
 
 ```
