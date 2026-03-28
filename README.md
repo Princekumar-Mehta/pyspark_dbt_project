@@ -2,6 +2,8 @@
 
 An end-to-end data engineering monorepo implementing a **Medallion Architecture** (Bronze → Silver → Gold) using **Apache Spark (Databricks)**, **dbt**, and **Apache Airflow** for orchestration.
 
+![Medallion Architecture](./architecture.png)
+
 ---
 
 ## Architecture Overview
