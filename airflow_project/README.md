@@ -2,6 +2,8 @@
 
 Dockerized **Apache Airflow 3.x** orchestration layer for the PySpark + dbt Medallion pipeline. Uses **CeleryExecutor** with Redis and PostgreSQL backends.
 
+![Airflow Orchestration](./architecture.png)
+
 ---
 
 ## Directory Structure

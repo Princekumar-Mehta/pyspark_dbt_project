@@ -2,6 +2,8 @@
 
 This sub-project contains the **dbt** data transformation models that power the **Gold layer** of the Medallion Architecture. It reads from the Silver Delta tables (produced by PySpark) and builds business-ready, aggregated analytical tables.
 
+![dbt Project](./architecture.png)
+
 ---
 
 ## Project Details

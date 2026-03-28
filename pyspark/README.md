@@ -2,6 +2,8 @@
 
 This sub-project contains **Databricks PySpark notebooks** responsible for the **Bronze** and **Silver** layers of the Medallion Architecture.
 
+![PySpark on Databricks](./architecture.png)
+
 ---
 
 ## Contents
